@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Download, Settings, Volume2, Clock, X } from "lucide-react";
 import { toast } from "sonner";
-import { synthesizeSpeech } from "@/lib/tts-utils";
+import { synthesizeSpeech, processFormattedText } from "@/lib/tts-utils";
 import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./text-to-speech/AudioPlayer";
@@ -13,6 +13,7 @@ import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { useTTSHistory } from "@/hooks/useTTSHistory";
 import { useTTSSettings } from "@/hooks/useTTSSettings";
 import { useTextHighlight } from "@/hooks/useTextHighlight";
+import { FileImport } from "./text-to-speech/FileImport";
 
 export const TextToSpeech = () => {
   const [text, setText] = useState("");
@@ -48,27 +49,40 @@ export const TextToSpeech = () => {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
       }
+
+      // Process formatted text into segments
+      const segments = processFormattedText(text, settings);
       
-      const result = await synthesizeSpeech(text, settings);
+      // Convert each segment and combine the audio
+      const audioBlobs: Blob[] = [];
+      
+      for (const segment of segments) {
+        const result = await synthesizeSpeech(segment.text, {
+          ...settings,
+          ...segment.settings
+        });
+        audioBlobs.push(result.audioBlob);
+      }
+      
+      // Combine all audio blobs
+      const combinedBlob = new Blob(audioBlobs, { type: 'audio/mpeg' });
       
       // Clean up previous audio URL
       if (currentAudioUrl) {
         URL.revokeObjectURL(currentAudioUrl);
       }
       
-      // Create a new audio URL from the blob
-      const newAudioUrl = URL.createObjectURL(
-        new Blob([result.audioBlob], { type: 'audio/mpeg' })
-      );
+      // Create a new audio URL from the combined blob
+      const newAudioUrl = URL.createObjectURL(combinedBlob);
       
       // Store both the blob and URL
-      setCurrentAudioBlob(result.audioBlob);
+      setCurrentAudioBlob(combinedBlob);
       setCurrentAudioUrl(newAudioUrl);
       
       if (audioRef.current) {
         audioRef.current.src = newAudioUrl;
         audioRef.current.load();
-        addToHistory(text, newAudioUrl, result.audioBlob, settings.voice);
+        addToHistory(text, newAudioUrl, combinedBlob, settings.voice);
       }
       
       toast.success("Text converted to speech successfully");
@@ -131,6 +145,10 @@ export const TextToSpeech = () => {
     }
     
     setShowHistory(false);
+  };
+
+  const handleImport = (importedText: string) => {
+    setText(importedText);
   };
 
   return (
@@ -236,15 +254,18 @@ export const TextToSpeech = () => {
             )}
           </button>
           
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={!currentAudioBlob}
-            className="flex items-center justify-center gap-2 py-2 px-4 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:pointer-events-none"
-          >
-            <Download className="h-5 w-5" />
-            Download Audio
-          </button>
+          <div className="flex gap-2">
+            <FileImport onImport={handleImport} />
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={!currentAudioBlob}
+              className="flex items-center justify-center gap-2 py-2 px-4 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+            >
+              <Download className="h-5 w-5" />
+              Download Audio
+            </button>
+          </div>
         </div>
       </motion.form>
       
