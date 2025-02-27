@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Download, Settings, Volume2, Clock, X, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { synthesizeSpeech, processFormattedText } from "@/lib/tts-utils";
@@ -14,6 +14,7 @@ import { useTTSHistory } from "@/hooks/useTTSHistory";
 import { useTTSSettings } from "@/hooks/useTTSSettings";
 import { useTextHighlight } from "@/hooks/useTextHighlight";
 import { FileImport } from "./text-to-speech/FileImport";
+import { TextAreaSkeleton, AudioPlayerSkeleton, SettingsSkeleton } from "./ui/skeleton";
 
 const MAX_WORDS = 1000;
 
@@ -26,6 +27,7 @@ export const TextToSpeech = () => {
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<'mp3' | 'wav' | 'flac'>('mp3');
+  const [isSettingsLoading, setIsSettingsLoading] = useState(true);
 
   const { settings, updateSetting, updateVoice } = useTTSSettings();
   const { history, addToHistory, removeFromHistory, clearHistory } = useTTSHistory();
@@ -36,6 +38,14 @@ export const TextToSpeech = () => {
     currentTime,
     duration
   });
+
+  // Simulate settings loading on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsSettingsLoading(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,12 +263,27 @@ export const TextToSpeech = () => {
         onRemove={removeFromHistory}
       />
       
-      <SettingsPanel
-        show={showSettings}
-        settings={settings}
-        onSettingChange={updateSetting}
-        onVoiceSelect={updateVoice}
-      />
+      <AnimatePresence mode="wait">
+        {showSettings && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {isSettingsLoading ? (
+              <SettingsSkeleton />
+            ) : (
+              <SettingsPanel
+                show={showSettings}
+                settings={settings}
+                onSettingChange={updateSetting}
+                onVoiceSelect={updateVoice}
+              />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Main Content Section */}
       <motion.form 
@@ -276,12 +301,32 @@ export const TextToSpeech = () => {
               (Max {MAX_WORDS} words)
             </span>
           </h2>
-          <HighlightedText
-            words={words}
-            currentWordIndex={currentWordIndex}
-            onTextChange={setText}
-            value={text}
-          />
+          <AnimatePresence mode="wait">
+            {isProcessing ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <TextAreaSkeleton />
+              </motion.div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <HighlightedText
+                  words={words}
+                  currentWordIndex={currentWordIndex}
+                  onTextChange={setText}
+                  value={text}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </section>
         
         {/* Action Buttons Section */}
@@ -328,75 +373,87 @@ export const TextToSpeech = () => {
       {/* Audio Player Section */}
       <audio ref={audioRef} onEnded={resetHighlight} />
       
-      {currentAudioUrl && (
-        <section className="mt-8">
-          <h2 className="text-lg font-medium mb-3">Audio Preview</h2>
-          <div className="relative">
-            <AudioPlayer
-              isPlaying={isPlaying}
-              currentTime={currentTime}
-              duration={duration}
-              volume={audioRef.current?.volume || 1}
-              isMuted={audioRef.current?.muted || false}
-              onPlay={controls.play}
-              onPause={controls.pause}
-              onSeek={(time) => {
-                controls.seek(time);
-                updateHighlightOnSeek(time);
-              }}
-              onVolumeChange={controls.setVolume}
-              onToggleMute={controls.toggleMute}
-            />
+      <AnimatePresence mode="wait">
+        {currentAudioUrl && (
+          <motion.section
+            className="mt-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <h2 className="text-lg font-medium mb-3">Audio Preview</h2>
+            {isProcessing ? (
+              <AudioPlayerSkeleton />
+            ) : (
+              <div className="relative">
+                <AudioPlayer
+                  isPlaying={isPlaying}
+                  currentTime={currentTime}
+                  duration={duration}
+                  volume={audioRef.current?.volume || 1}
+                  isMuted={audioRef.current?.muted || false}
+                  onPlay={controls.play}
+                  onPause={controls.pause}
+                  onSeek={(time) => {
+                    controls.seek(time);
+                    updateHighlightOnSeek(time);
+                  }}
+                  onVolumeChange={controls.setVolume}
+                  onToggleMute={controls.toggleMute}
+                />
 
-            {/* Export Options Panel */}
-            {showExportOptions && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-                className="absolute left-0 right-0 mt-2 rounded-lg shadow-lg bg-popover border border-border overflow-hidden"
-              >
-                <div className="p-4 space-y-2">
-                  <h3 className="text-sm font-medium mb-2">Export Options</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedFormat('mp3');
-                        handleDownload();
-                      }}
-                      className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      <Download className="h-4 w-4" />
-                      <span>MP3 Format</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedFormat('wav');
-                        handleDownload();
-                      }}
-                      className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      <Download className="h-4 w-4" />
-                      <span>WAV Format</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedFormat('flac');
-                        handleDownload();
-                      }}
-                      className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      <Download className="h-4 w-4" />
-                      <span>FLAC Format</span>
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
+                {/* Export Options Panel */}
+                {showExportOptions && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute left-0 right-0 mt-2 rounded-lg shadow-lg bg-popover border border-border overflow-hidden"
+                  >
+                    <div className="p-4 space-y-2">
+                      <h3 className="text-sm font-medium mb-2">Export Options</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedFormat('mp3');
+                            handleDownload();
+                          }}
+                          className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                        >
+                          <Download className="h-4 w-4" />
+                          <span>MP3 Format</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedFormat('wav');
+                            handleDownload();
+                          }}
+                          className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                        >
+                          <Download className="h-4 w-4" />
+                          <span>WAV Format</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedFormat('flac');
+                            handleDownload();
+                          }}
+                          className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                        >
+                          <Download className="h-4 w-4" />
+                          <span>FLAC Format</span>
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
             )}
-          </div>
-        </section>
-      )}
+          </motion.section>
+        )}
+      </AnimatePresence>
     </div>
   );
 }; 
