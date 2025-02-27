@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { VoiceSelector } from "./VoiceSelector";
 import { Waveform } from "./ui/waveform";
@@ -9,12 +8,13 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_VOICE: TTSVoice = { 
-  id: "aria", 
-  name: "Aria", 
-  gender: "Female", 
-  accent: "American", 
+  id: "21m00Tcm4TlvDq8ikWAM", // Rachel voice ID from ElevenLabs
+  name: "Rachel",
+  gender: "Female",
+  accent: "American",
   age: "Adult",
-  description: "Clear and professional" 
+  description: "Clear and professional",
+  category: "premade"
 };
 
 type HistoryItem = {
@@ -22,6 +22,8 @@ type HistoryItem = {
   text: string;
   timestamp: number;
   voice: TTSVoice;
+  audioUrl?: string;
+  audioBlob?: Blob;
 };
 
 export const TextToSpeech = () => {
@@ -36,15 +38,17 @@ export const TextToSpeech = () => {
     voice: DEFAULT_VOICE,
     rate: 1,
     pitch: 1,
+    stability: 0.5,
+    similarityBoost: 0.75,
+    style: 0.0,
+    useSpeakerBoost: true,
   });
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [highlightedText, setHighlightedText] = useState<string[]>([]);
-  const [currentWordIndex, setCurrentWordIndex] = useState(-1);
+  const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null);
+  const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUrl = useRef<string | null>(null);
-  const textRef = useRef<HTMLDivElement>(null);
 
   // Load history from localStorage on component mount
   useEffect(() => {
@@ -63,108 +67,45 @@ export const TextToSpeech = () => {
     localStorage.setItem("tts-history", JSON.stringify(history));
   }, [history]);
 
-  // Split text into words when it changes
   useEffect(() => {
-    if (text) {
-      // Split by spaces but keep punctuation with words
-      const words = text.match(/[\w]+[.,!?;:']?|\S/g) || [];
-      setHighlightedText(words);
-    } else {
-      setHighlightedText([]);
-    }
-    setCurrentWordIndex(-1);
-  }, [text]);
-
-  useEffect(() => {
-    const audio = new Audio();
-    audioRef.current = audio;
+    const audio = audioRef.current;
+    if (!audio) return;
     
     const updateTime = () => {
       setCurrentTime(audio.currentTime);
-      
-      // Update highlighted word based on current time
-      // This is a simplified approach. In a real implementation,
-      // we would have precise timing data for each word from the TTS service
-      if (isPlaying && highlightedText.length > 0) {
-        const wordDuration = audio.duration / highlightedText.length;
-        const currentWordIdx = Math.min(
-          Math.floor(audio.currentTime / wordDuration),
-          highlightedText.length - 1
-        );
-        setCurrentWordIndex(currentWordIdx);
-        
-        // Auto-scroll to keep the current word visible
-        if (textRef.current && currentWordIdx >= 0) {
-          const wordElements = textRef.current.querySelectorAll('.word');
-          if (wordElements[currentWordIdx]) {
-            wordElements[currentWordIdx].scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-              inline: 'nearest'
-            });
-          }
-        }
-      }
     };
     
     const handleEnded = () => {
       setIsPlaying(false);
-      setCurrentTime(0);
-      setCurrentWordIndex(-1);
+      setCurrentTime(audio.duration);
     };
     
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
     };
+
+    const handleError = (e: ErrorEvent) => {
+      console.error('Audio playback error:', e);
+      setIsPlaying(false);
+      toast.error('Error playing audio. Please try again.');
+    };
     
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("ended", handleEnded);
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("error", handleError);
     
     return () => {
       audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("error", handleError);
       audio.pause();
-      if (audioUrl.current) {
-        URL.revokeObjectURL(audioUrl.current);
+      if (currentAudioUrl) {
+        URL.revokeObjectURL(currentAudioUrl);
       }
     };
-  }, [isPlaying, highlightedText]);
-
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setText(e.target.value);
-  };
-
-  const handleVoiceChange = (voice: TTSVoice) => {
-    setSelectedVoice(voice);
-    setSettings(prev => ({ ...prev, voice }));
-  };
-
-  const handleRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rate = parseFloat(e.target.value);
-    setSettings(prev => ({ ...prev, rate }));
-  };
-
-  const handlePitchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const pitch = parseFloat(e.target.value);
-    setSettings(prev => ({ ...prev, pitch }));
-  };
-
-  const addToHistory = (text: string) => {
-    const newItem: HistoryItem = {
-      id: Date.now().toString(),
-      text,
-      timestamp: Date.now(),
-      voice: settings.voice,
-    };
-    
-    setHistory(prev => {
-      // Add to beginning of array, limit to 10 most recent items
-      const updated = [newItem, ...prev].slice(0, 10);
-      return updated;
-    });
-  };
+  }, [currentAudioUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,22 +118,33 @@ export const TextToSpeech = () => {
     try {
       setIsProcessing(true);
       
+      // Stop any currently playing audio first
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        setIsPlaying(false);
+      }
+      
       const result = await synthesizeSpeech(text, settings);
       
+      // Clean up previous audio URL
+      if (currentAudioUrl) {
+        URL.revokeObjectURL(currentAudioUrl);
+      }
+      
+      // Create a new audio URL from the blob
+      const newAudioUrl = URL.createObjectURL(
+        new Blob([result.audioBlob], { type: 'audio/mpeg' })
+      );
+      
+      // Store both the blob and URL
+      setCurrentAudioBlob(result.audioBlob);
+      setCurrentAudioUrl(newAudioUrl);
+      
       if (audioRef.current) {
-        if (audioUrl.current) {
-          URL.revokeObjectURL(audioUrl.current);
-        }
-        
-        // In a real implementation, we'd use the actual audio URL from the API
-        // For this demo, we'll just assume we have an audio file
-        audioRef.current.src = result.audioUrl;
-        audioUrl.current = result.audioUrl;
-        
-        // Add to history
-        addToHistory(text);
-        
-        handlePlay();
+        audioRef.current.src = newAudioUrl;
+        audioRef.current.load();
+        addToHistory(text, newAudioUrl, result.audioBlob);
       }
       
       toast.success("Text converted to speech successfully");
@@ -204,10 +156,21 @@ export const TextToSpeech = () => {
     }
   };
 
-  const handlePlay = () => {
-    if (audioRef.current) {
-      audioRef.current.play();
-      setIsPlaying(true);
+  const handlePlay = async () => {
+    if (!audioRef.current || !currentAudioUrl || !currentAudioBlob) return;
+
+    try {
+      if (audioRef.current.paused) {
+        await audioRef.current.play();
+        setIsPlaying(true);
+      } else {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+    } catch (error) {
+      console.error("Error playing audio:", error);
+      toast.error("Failed to play audio. Please try again.");
+      setIsPlaying(false);
     }
   };
 
@@ -218,29 +181,116 @@ export const TextToSpeech = () => {
     }
   };
 
+  // Add progress bar click handler
+  const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !duration) return;
+    
+    const progressBar = e.currentTarget;
+    const rect = progressBar.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const width = rect.width;
+    const percentage = x / width;
+    const newTime = percentage * duration;
+    
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
   const handleDownload = () => {
     if (!text.trim()) {
       toast.error("Please generate speech first before downloading");
       return;
     }
     
-    saveTextAsFile(text, "speech-text.txt");
-    toast.success("Text file downloaded successfully");
+    if (currentAudioBlob) {
+      try {
+        const filename = `speech_${selectedVoice.name}_${Date.now()}.mp3`;
+        const downloadUrl = URL.createObjectURL(currentAudioBlob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl); // Clean up the temporary download URL
+        toast.success(`Audio downloaded as ${filename}`);
+      } catch (error) {
+        console.error('Error downloading audio:', error);
+        toast.error('Failed to download audio. Please try again.');
+      }
+    } else {
+      toast.error("No audio available to download");
+    }
+  };
+
+  const addToHistory = (text: string, audioUrl: string, audioBlob: Blob) => {
+    const newItem: HistoryItem = {
+      id: Date.now().toString(),
+      text,
+      timestamp: Date.now(),
+      voice: settings.voice,
+      audioUrl,
+      audioBlob
+    };
+    
+    setHistory(prev => {
+      // Add to beginning of array, limit to 10 most recent items
+      const updated = [newItem, ...prev].slice(0, 10);
+      return updated;
+    });
   };
 
   const loadFromHistory = (item: HistoryItem) => {
     setText(item.text);
-    setSettings(prev => ({ ...prev, voice: item.voice }));
     setSelectedVoice(item.voice);
+    setSettings(prev => ({
+      ...prev,
+      voice: item.voice
+    }));
+    
+    // Clean up current audio URL
+    if (currentAudioUrl) {
+      URL.revokeObjectURL(currentAudioUrl);
+    }
+    
+    // Create new audio URL from stored blob
+    if (item.audioBlob) {
+      const newAudioUrl = URL.createObjectURL(
+        new Blob([item.audioBlob], { type: 'audio/mpeg' })
+      );
+      setCurrentAudioUrl(newAudioUrl);
+      setCurrentAudioBlob(item.audioBlob);
+      
+      if (audioRef.current) {
+        audioRef.current.src = newAudioUrl;
+        audioRef.current.load();
+      }
+    }
+    
     setShowHistory(false);
   };
 
   const removeFromHistory = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setHistory(prev => prev.filter(item => item.id !== id));
+    setHistory(prev => {
+      const newHistory = prev.filter(item => item.id !== id);
+      // Clean up audio URLs for removed items
+      prev.forEach(item => {
+        if (item.id === id && item.audioUrl) {
+          URL.revokeObjectURL(item.audioUrl);
+        }
+      });
+      return newHistory;
+    });
   };
 
   const clearHistory = () => {
+    // Clean up all audio URLs
+    history.forEach(item => {
+      if (item.audioUrl) {
+        URL.revokeObjectURL(item.audioUrl);
+      }
+    });
     setHistory([]);
     toast.success("History cleared");
   };
@@ -252,6 +302,12 @@ export const TextToSpeech = () => {
       hour: "numeric",
       minute: "2-digit"
     });
+  };
+
+  // Update this to handle voice selection
+  const handleVoiceSelect = (voice: TTSVoice) => {
+    setSelectedVoice(voice);
+    setSettings(prev => ({ ...prev, voice }));
   };
 
   return (
@@ -291,8 +347,6 @@ export const TextToSpeech = () => {
         </div>
       </div>
       
-      
-
       {/* History Panel */}
       <div className={cn(
         "mb-6 glass-card rounded-lg p-4 transition-all",
@@ -346,81 +400,136 @@ export const TextToSpeech = () => {
       </div>
       
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Text Input - hidden when playing with word highlighting */}
-        <div className={cn(
-          "glass-card rounded-lg overflow-hidden transition-all duration-300 border border-input/30",
-          isPlaying ? "hidden" : "block"
-        )}>
+        <div className="glass-card rounded-lg overflow-hidden transition-all duration-300 border border-input relative">
           <textarea
             value={text}
-            onChange={handleTextChange}
+            onChange={(e) => setText(e.target.value)}
             placeholder="Enter text to convert to speech..."
-            className="w-full h-40 p-4 bg-transparent focus:outline-none resize-none"
+            className="w-full h-40 p-4 bg-transparent focus:outline-none resize-none pr-10"
             required
           />
-        </div>
-        
-        {/* Word highlighting view - shown during playback */}
-        <div 
-          ref={textRef}
-          className={cn(
-            "glass-card rounded-lg overflow-auto transition-all duration-300 border border-input/30 p-4 h-40",
-            !isPlaying ? "hidden" : "block"
+          {text && (
+            <button
+              type="button"
+              onClick={() => setText("")}
+              className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-accent/50 text-muted-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
           )}
-        >
-          <div className="space-x-1 leading-relaxed">
-            {highlightedText.map((word, index) => (
-              <span 
-                key={index}
-                className={cn(
-                  "word transition-all duration-150 inline-block",
-                  index === currentWordIndex && "bg-primary/20 text-primary font-medium rounded px-1 py-0.5 transform scale-105"
-                )}
-              >
-                {word}
-              </span>
-            ))}
-          </div>
         </div>
         {/* Settings Panel */}
-      <div className={cn(
-        "mb-6 glass-card rounded-lg p-4 transition-all",
-        showSettings ? "h-auto opacity-100" : "h-0 opacity-0 overflow-hidden p-0"
-      )}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-scale-in">
-          <div>
-            <label className="block text-sm font-medium mb-2">Voice</label>
-            <VoiceSelector 
-              selectedVoice={selectedVoice} 
-              onSelect={handleVoiceChange} 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Speech Rate: {settings.rate.toFixed(1)}x</label>
-            <input
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value={settings.rate}
-              onChange={handleRateChange}
-              className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Pitch: {settings.pitch.toFixed(1)}</label>
-            <input
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value={settings.pitch}
-              onChange={handlePitchChange}
-              className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
-            />
+        <div className={cn(
+          "mb-6 glass-card rounded-lg p-4 transition-all",
+          showSettings ? "h-auto opacity-100" : "h-0 opacity-0 overflow-hidden p-0"
+        )}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-scale-in">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-2">Voice</label>
+              <VoiceSelector 
+                selectedVoice={selectedVoice} 
+                onSelect={handleVoiceSelect}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Speech Rate: {settings.rate.toFixed(1)}x
+              </label>
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={settings.rate}
+                onChange={(e) => setSettings(prev => ({ ...prev, rate: parseFloat(e.target.value) }))}
+                className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Pitch: {settings.pitch.toFixed(1)}
+              </label>
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={settings.pitch}
+                onChange={(e) => setSettings(prev => ({ ...prev, pitch: parseFloat(e.target.value) }))}
+                className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Stability: {settings.stability.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={settings.stability}
+                onChange={(e) => setSettings(prev => ({ ...prev, stability: parseFloat(e.target.value) }))}
+                className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Higher values make voice more consistent but less expressive
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Similarity Boost: {settings.similarityBoost.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={settings.similarityBoost}
+                onChange={(e) => setSettings(prev => ({ ...prev, similarityBoost: parseFloat(e.target.value) }))}
+                className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Higher values make voice more similar to original
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Style Influence: {settings.style.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={settings.style}
+                onChange={(e) => setSettings(prev => ({ ...prev, style: parseFloat(e.target.value) }))}
+                className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Higher values enhance speaking style
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="speakerBoost"
+                checked={settings.useSpeakerBoost}
+                onChange={(e) => setSettings(prev => ({ ...prev, useSpeakerBoost: e.target.checked }))}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <label htmlFor="speakerBoost" className="text-sm font-medium">
+                Use Speaker Boost
+              </label>
+            </div>
           </div>
         </div>
-      </div>
         
         <div className="flex flex-col md:flex-row gap-4">
           <button
@@ -433,54 +542,65 @@ export const TextToSpeech = () => {
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
             )}
           >
-            <Volume2 className="h-5 w-5" />
-            {isProcessing ? "Converting..." : "Convert to Speech"}
+            {isProcessing ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div>
+                <span>Converting...</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="h-5 w-5" />
+                <span>Convert to Speech</span>
+              </>
+            )}
           </button>
           
           <button
             type="button"
             onClick={handleDownload}
-            disabled={!text.trim()}
+            disabled={!currentAudioBlob}
             className="flex items-center justify-center gap-2 py-2 px-4 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:pointer-events-none"
           >
             <Download className="h-5 w-5" />
-            Download Text
+            Download Audio
           </button>
         </div>
       </form>
       
+      {/* Audio element */}
+      <audio ref={audioRef} />
       
       {/* Audio Player */}
-      <div className={cn(
-        "mt-6 glass-card rounded-lg p-4 transition-all duration-300 transform",
-        (isPlaying || currentTime > 0) ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
-      )}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={isPlaying ? handlePause : handlePlay}
-              className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center transition-transform hover:scale-105"
-              aria-label={isPlaying ? "Pause" : "Play"}
-            >
-              {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-            </button>
-            <div className="text-sm">
-              {formatTime(currentTime)} / {formatTime(duration || 0)}
+      {currentAudioUrl && (
+        <div className="mt-6 glass-card rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={isPlaying ? handlePause : handlePlay}
+                className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center transition-transform hover:scale-105"
+                aria-label={isPlaying ? "Pause" : "Play"}
+              >
+                {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+              </button>
+              <div className="text-sm">
+                {formatTime(currentTime)} / {formatTime(duration || 0)}
+              </div>
             </div>
           </div>
           
-          <Waveform isPlaying={isPlaying} />
-        </div>
-        
-        <div className="mt-3">
-          <div className="h-1 w-full bg-secondary rounded-full overflow-hidden">
+          <div className="mt-3">
             <div 
-              className="h-full bg-primary transition-all duration-100"
-              style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
-            />
+              className="h-1 w-full bg-secondary rounded-full overflow-hidden cursor-pointer"
+              onClick={handleProgressBarClick}
+            >
+              <div 
+                className="h-full bg-primary transition-all duration-100"
+                style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

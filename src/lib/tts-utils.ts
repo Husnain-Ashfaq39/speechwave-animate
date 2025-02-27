@@ -1,4 +1,3 @@
-
 // Types for TTS operations
 export type VoiceAccent = "American" | "British" | "Australian" | "Indian" | "Spanish" | "French" | "German" | "Japanese" | "Scottish";
 export type VoiceGender = "Male" | "Female" | "Neutral";
@@ -11,30 +10,42 @@ export type TTSVoice = {
   accent?: VoiceAccent;
   age?: VoiceAge;
   description?: string;
+  previewUrl?: string;
+  category?: string;
+  useCase?: string;
 };
 
 export type TTSSettings = {
   voice: TTSVoice;
   rate: number;
   pitch: number;
+  stability: number;
+  similarityBoost: number;
+  style: number;
+  useSpeakerBoost: boolean;
 };
 
-// Mock function to simulate TTS service
+// Import the generateSpeech function from elevenlabs-api
+import { elevenLabsGenerateSpeech as elevenLabsGenerateSpeech } from './elevenlabs-api';
+
+// Use the ElevenLabs API for speech synthesis
 export const synthesizeSpeech = async (
   text: string,
   settings: TTSSettings
-): Promise<{ audioUrl: string }> => {
-  console.log(`Synthesizing speech: "${text}" with voice ${settings.voice.name} (${settings.voice.gender}, ${settings.voice.accent || 'No accent'})`);
-  console.log(`Speech settings: Rate ${settings.rate}x, Pitch ${settings.pitch}`);
-  
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // In a real implementation, this would connect to an actual TTS service
-  // For now, just return a success response
-  return {
-    audioUrl: "data:audio/mp3;base64,..."
-  };
+): Promise<{
+  audioUrl: string;
+  audioBlob: Blob;
+}> => {
+  try {
+    const { audioBlob } = await elevenLabsGenerateSpeech(text, settings);
+    return {
+      audioUrl: URL.createObjectURL(audioBlob),
+      audioBlob
+    };
+  } catch (error) {
+    console.error('Error in synthesizeSpeech:', error);
+    throw error;
+  }
 };
 
 // Helper function to save text as a file

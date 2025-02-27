@@ -1,34 +1,9 @@
-import { useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Check, ChevronDown, Play, Pause, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VoiceAccent, VoiceGender, VoiceAge, TTSVoice } from "@/lib/tts-utils";
+import { fetchVoices, ElevenLabsVoice } from "@/lib/elevenlabs-api";
 
-// Extended voices with more diversity
-const VOICES: TTSVoice[] = [
-  // Female voices
-  { id: "aria", name: "Aria", gender: "Female", accent: "American", age: "Adult", description: "Clear and professional" },
-  { id: "sarah", name: "Sarah", gender: "Female", accent: "British", age: "Adult", description: "Warm and friendly" },
-  { id: "laura", name: "Laura", gender: "Female", accent: "American", age: "Young", description: "Energetic and upbeat" },
-  { id: "emma", name: "Emma", gender: "Female", accent: "British", age: "Young", description: "Soft and gentle" },
-  { id: "sophia", name: "Sophia", gender: "Female", accent: "Australian", age: "Adult", description: "Confident and clear" },
-  { id: "priya", name: "Priya", gender: "Female", accent: "Indian", age: "Adult", description: "Articulate and precise" },
-  { id: "maria", name: "Maria", gender: "Female", accent: "Spanish", age: "Adult", description: "Warm with subtle accent" },
-  { id: "isabelle", name: "Isabelle", gender: "Female", accent: "French", age: "Adult", description: "Elegant and refined" },
-  
-  // Male voices
-  { id: "roger", name: "Roger", gender: "Male", accent: "British", age: "Adult", description: "Authoritative and clear" },
-  { id: "charlie", name: "Charlie", gender: "Male", accent: "American", age: "Young", description: "Friendly and approachable" },
-  { id: "george", name: "George", gender: "Male", accent: "British", age: "Senior", description: "Deep and distinguished" },
-  { id: "callum", name: "Callum", gender: "Male", accent: "Scottish", age: "Adult", description: "Strong regional accent" },
-  { id: "river", name: "River", gender: "Male", accent: "American", age: "Adult", description: "Smooth and calming" },
-  { id: "miguel", name: "Miguel", gender: "Male", accent: "Spanish", age: "Adult", description: "Rich with subtle accent" },
-  { id: "hans", name: "Hans", gender: "Male", accent: "German", age: "Adult", description: "Clear with subtle accent" },
-  { id: "takumi", name: "Takumi", gender: "Male", accent: "Japanese", age: "Adult", description: "Precise pronunciation" },
-  
-  // Neutral voices
-  { id: "alex", name: "Alex", gender: "Neutral", accent: "American", age: "Adult", description: "Balanced and clear" },
-  { id: "sam", name: "Sam", gender: "Neutral", accent: "British", age: "Adult", description: "Neutral and professional" }
-];
 
 interface VoiceSelectorProps {
   selectedVoice: TTSVoice;
@@ -39,28 +14,139 @@ interface VoiceSelectorProps {
 export const VoiceSelector = ({ selectedVoice, onSelect, className }: VoiceSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState<string>("");
+  const [voices, setVoices] = useState<TTSVoice[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [playingPreviewId, setPlayingPreviewId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const loadVoices = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const elevenLabsVoices = await fetchVoices();
+        
+        // Convert ElevenLabs voices to our TTSVoice format
+        const convertedVoices: TTSVoice[] = elevenLabsVoices.map(voice => ({
+          id: voice.voice_id,
+          name: voice.name,
+          gender: (voice.labels.gender as VoiceGender) || "Neutral",
+          accent: (voice.labels.accent as VoiceAccent),
+          age: (voice.labels.age as VoiceAge),
+          description: voice.labels.description,
+          previewUrl: voice.preview_url,
+          category: voice.category,
+          useCase: voice.labels.use_case
+        }));
+
+        setVoices(convertedVoices);
+      } catch (err) {
+        console.error('Error loading voices:', err);
+        setError('Failed to load voices. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadVoices();
+  }, []);
+
+  useEffect(() => {
+    // Cleanup function for audio
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   const handleSelect = (voice: TTSVoice) => {
     onSelect(voice);
     setIsOpen(false);
   };
 
+  const handlePreviewPlay = async (voice: TTSVoice, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent voice selection when clicking play button
+    
+    try {
+      if (playingPreviewId === voice.id) {
+        // Stop playing current audio
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          audioRef.current = null;
+        }
+        setPlayingPreviewId(null);
+      } else {
+        // Stop any currently playing audio
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          audioRef.current = null;
+        }
+        
+        // Create and play new audio
+        if (voice.previewUrl) {
+          const audio = new Audio(voice.previewUrl);
+          audio.addEventListener('ended', () => {
+            setPlayingPreviewId(null);
+            audioRef.current = null;
+          });
+          
+          audioRef.current = audio;
+          await audio.play();
+          setPlayingPreviewId(voice.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setPlayingPreviewId(null);
+      if (audioRef.current) {
+        audioRef.current = null;
+      }
+    }
+  };
+
   // Filter voices based on search input
   const filteredVoices = filter.trim() 
-    ? VOICES.filter(voice => 
+    ? voices.filter(voice => 
         voice.name.toLowerCase().includes(filter.toLowerCase()) ||
         voice.gender.toLowerCase().includes(filter.toLowerCase()) ||
         (voice.accent && voice.accent.toLowerCase().includes(filter.toLowerCase())) ||
-        (voice.description && voice.description.toLowerCase().includes(filter.toLowerCase()))
+        (voice.description && voice.description.toLowerCase().includes(filter.toLowerCase())) ||
+        (voice.category && voice.category.toLowerCase().includes(filter.toLowerCase())) ||
+        (voice.useCase && voice.useCase.toLowerCase().includes(filter.toLowerCase()))
       )
-    : VOICES;
+    : voices;
 
-  // Group voices by gender for better organization
-  const groupedVoices: Record<VoiceGender, TTSVoice[]> = {
-    Female: filteredVoices.filter(v => v.gender === "Female"),
-    Male: filteredVoices.filter(v => v.gender === "Male"),
-    Neutral: filteredVoices.filter(v => v.gender === "Neutral")
-  };
+  // Group voices by category
+  const groupedVoices = filteredVoices.reduce((acc, voice) => {
+    const category = voice.category || "Other";
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(voice);
+    return acc;
+  }, {} as Record<string, TTSVoice[]>);
+
+  if (isLoading) {
+    return (
+      <div className="w-full flex items-center justify-center py-4">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full text-center py-4 text-destructive">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("relative z-[100]", className)}>
@@ -74,7 +160,8 @@ export const VoiceSelector = ({ selectedVoice, onSelect, className }: VoiceSelec
         <div className="flex items-center">
           <span>{selectedVoice.name}</span>
           <span className="ml-2 text-xs text-muted-foreground">
-            {selectedVoice.gender}{selectedVoice.accent ? ` · ${selectedVoice.accent}` : ""}
+            {selectedVoice.category} · {selectedVoice.gender}
+            {selectedVoice.accent ? ` · ${selectedVoice.accent}` : ""}
           </span>
         </div>
         <ChevronDown className="h-4 w-4 opacity-50" />
@@ -82,32 +169,42 @@ export const VoiceSelector = ({ selectedVoice, onSelect, className }: VoiceSelec
       
       {isOpen && (
         <div className="absolute top-full mt-1 w-full z-[999] animate-fade-in">
-          <div className="bg-background/95 backdrop-blur-sm border border-input/20 shadow-lg max-h-80 rounded-md overflow-hidden">
+          <div className="bg-background border border-input shadow-lg rounded-md overflow-hidden flex flex-col" style={{ maxHeight: 'min(70vh, 400px)' }}>
             {/* Search filter */}
-            <div className="p-2 border-b border-input/10">
-              <input
-                type="text"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder="Search voices..."
-                className="w-full px-2 py-1 text-sm bg-background/50 rounded border border-input/20 focus:outline-none focus:ring-1 focus:ring-ring"
-              />
+            <div className="p-2 border-b border-input sticky top-0 bg-background z-10">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  placeholder="Search voices..."
+                  className="w-full pl-8 pr-8 py-1 text-sm bg-background rounded border border-input focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                {filter && (
+                  <button
+                    onClick={() => setFilter("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-accent/50"
+                  >
+                    <X className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
             </div>
             
-            <div className="max-h-72 overflow-auto">
-              {/* Render each gender group */}
-              {(Object.keys(groupedVoices) as VoiceGender[]).map(gender => {
-                const voices = groupedVoices[gender];
-                if (voices.length === 0) return null;
+            <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-accent scrollbar-track-transparent">
+              {/* Render each category group */}
+              {Object.entries(groupedVoices).map(([category, categoryVoices]) => {
+                if (categoryVoices.length === 0) return null;
                 
                 return (
-                  <div key={gender} className="py-1">
+                  <div key={category} className="py-1">
                     <div className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      {gender} Voices
+                      {category}
                     </div>
                     
                     <ul className="py-1" role="listbox">
-                      {voices.map((voice) => (
+                      {categoryVoices.map((voice) => (
                         <li
                           key={voice.id}
                           role="option"
@@ -119,16 +216,34 @@ export const VoiceSelector = ({ selectedVoice, onSelect, className }: VoiceSelec
                           )}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="font-medium">{voice.name}</span>
-                            {selectedVoice.id === voice.id && (
-                              <Check className="h-4 w-4 ml-2" />
-                            )}
-                          </div>
-                          <div className="flex items-center text-xs text-muted-foreground">
-                            <span>{voice.accent}</span>
-                            {voice.description && (
-                              <span className="ml-1 opacity-70">· {voice.description}</span>
-                            )}
+                            <div>
+                              <span className="font-medium">{voice.name}</span>
+                              <div className="flex gap-2 items-center mt-1 text-xs text-muted-foreground">
+                                {voice.gender && <span>{voice.gender}</span>}
+                                {voice.accent && <span>{voice.accent}</span>}
+                                {voice.useCase && <span className="opacity-70">· {voice.useCase}</span>}
+                              </div>
+                              {voice.description && (
+                                <p className="text-xs text-muted-foreground mt-1">{voice.description}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {voice.previewUrl && (
+                                <button
+                                  onClick={(e) => handlePreviewPlay(voice, e)}
+                                  className="p-1.5 rounded-full hover:bg-accent/50"
+                                >
+                                  {playingPreviewId === voice.id ? (
+                                    <Pause className="h-4 w-4" />
+                                  ) : (
+                                    <Play className="h-4 w-4" />
+                                  )}
+                                </button>
+                              )}
+                              {selectedVoice.id === voice.id && (
+                                <Check className="h-4 w-4 ml-2" />
+                              )}
+                            </div>
                           </div>
                         </li>
                       ))}
