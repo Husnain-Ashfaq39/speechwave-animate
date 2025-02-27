@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { VoiceSelector } from "./VoiceSelector";
 import { Waveform } from "./ui/waveform";
@@ -32,9 +31,12 @@ export const TextToSpeech = () => {
   });
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [highlightedText, setHighlightedText] = useState<string[]>([]);
+  const [currentWordIndex, setCurrentWordIndex] = useState(-1);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrl = useRef<string | null>(null);
+  const textRef = useRef<HTMLDivElement>(null);
 
   // Load history from localStorage on component mount
   useEffect(() => {
@@ -53,17 +55,54 @@ export const TextToSpeech = () => {
     localStorage.setItem("tts-history", JSON.stringify(history));
   }, [history]);
 
+  // Split text into words when it changes
+  useEffect(() => {
+    if (text) {
+      // Split by spaces but keep punctuation with words
+      const words = text.match(/[\w]+[.,!?;:']?|\S/g) || [];
+      setHighlightedText(words);
+    } else {
+      setHighlightedText([]);
+    }
+    setCurrentWordIndex(-1);
+  }, [text]);
+
   useEffect(() => {
     const audio = new Audio();
     audioRef.current = audio;
     
     const updateTime = () => {
       setCurrentTime(audio.currentTime);
+      
+      // Update highlighted word based on current time
+      // This is a simplified approach. In a real implementation,
+      // we would have precise timing data for each word from the TTS service
+      if (isPlaying && highlightedText.length > 0) {
+        const wordDuration = audio.duration / highlightedText.length;
+        const currentWordIdx = Math.min(
+          Math.floor(audio.currentTime / wordDuration),
+          highlightedText.length - 1
+        );
+        setCurrentWordIndex(currentWordIdx);
+        
+        // Auto-scroll to keep the current word visible
+        if (textRef.current && currentWordIdx >= 0) {
+          const wordElements = textRef.current.querySelectorAll('.word');
+          if (wordElements[currentWordIdx]) {
+            wordElements[currentWordIdx].scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'nearest'
+            });
+          }
+        }
+      }
     };
     
     const handleEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
+      setCurrentWordIndex(-1);
     };
     
     const handleLoadedMetadata = () => {
@@ -83,7 +122,7 @@ export const TextToSpeech = () => {
         URL.revokeObjectURL(audioUrl.current);
       }
     };
-  }, []);
+  }, [isPlaying, highlightedText]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
@@ -336,7 +375,11 @@ export const TextToSpeech = () => {
       </div>
       
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="glass-card rounded-lg overflow-hidden transition-all duration-300 border border-input/30">
+        {/* Text Input - hidden when playing with word highlighting */}
+        <div className={cn(
+          "glass-card rounded-lg overflow-hidden transition-all duration-300 border border-input/30",
+          isPlaying ? "hidden" : "block"
+        )}>
           <textarea
             value={text}
             onChange={handleTextChange}
@@ -346,13 +389,36 @@ export const TextToSpeech = () => {
           />
         </div>
         
+        {/* Word highlighting view - shown during playback */}
+        <div 
+          ref={textRef}
+          className={cn(
+            "glass-card rounded-lg overflow-auto transition-all duration-300 border border-input/30 p-4 h-40",
+            !isPlaying ? "hidden" : "block"
+          )}
+        >
+          <div className="space-x-1 leading-relaxed">
+            {highlightedText.map((word, index) => (
+              <span 
+                key={index}
+                className={cn(
+                  "word transition-all duration-150 inline-block",
+                  index === currentWordIndex && "bg-primary/20 text-primary font-medium rounded px-1 py-0.5 transform scale-105"
+                )}
+              >
+                {word}
+              </span>
+            ))}
+          </div>
+        </div>
+        
         <div className="flex flex-col md:flex-row gap-4">
           <button
             type="submit"
-            disabled={isProcessing || !text.trim()}
+            disabled={isProcessing || !text.trim() || isPlaying}
             className={cn(
               "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-              isProcessing || !text.trim() 
+              (isProcessing || !text.trim() || isPlaying)
                 ? "bg-primary/30 text-primary-foreground/50 cursor-not-allowed" 
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
             )}
