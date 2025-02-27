@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Download, Settings, Volume2, Clock, X } from "lucide-react";
+import { Download, Settings, Volume2, Clock, X, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { synthesizeSpeech, processFormattedText } from "@/lib/tts-utils";
 import { ThemeToggle } from "./ThemeToggle";
@@ -22,6 +22,8 @@ export const TextToSpeech = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null);
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
+  const [showExportOptions, setShowExportOptions] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState<'mp3' | 'wav' | 'flac'>('mp3');
 
   const { settings, updateSetting, updateVoice } = useTTSSettings();
   const { history, addToHistory, removeFromHistory, clearHistory } = useTTSHistory();
@@ -94,7 +96,7 @@ export const TextToSpeech = () => {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!text.trim()) {
       toast.error("Please generate speech first before downloading");
       return;
@@ -102,8 +104,41 @@ export const TextToSpeech = () => {
     
     if (currentAudioBlob) {
       try {
-        const filename = `speech_${settings.voice.name}_${Date.now()}.mp3`;
-        const downloadUrl = URL.createObjectURL(currentAudioBlob);
+        const filename = `speech_${settings.voice.name}_${Date.now()}.${selectedFormat}`;
+        
+        // Convert to selected format if needed
+        let downloadBlob = currentAudioBlob;
+        if (selectedFormat !== 'mp3') {
+          const audioContext = new AudioContext();
+          const arrayBuffer = await currentAudioBlob.arrayBuffer();
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          
+          const format = selectedFormat === 'wav' ? 'audio/wav' : 'audio/flac';
+          const offlineContext = new OfflineAudioContext(
+            audioBuffer.numberOfChannels,
+            audioBuffer.length,
+            audioBuffer.sampleRate
+          );
+          
+          const source = offlineContext.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(offlineContext.destination);
+          source.start();
+          
+          const renderedBuffer = await offlineContext.startRendering();
+          const wavBlob = await new Promise<Blob>((resolve) => {
+            const chunks: Float32Array[] = [];
+            const channels = [];
+            for (let i = 0; i < renderedBuffer.numberOfChannels; i++) {
+              channels.push(renderedBuffer.getChannelData(i));
+            }
+            resolve(new Blob([channels[0]], { type: format }));
+          });
+          
+          downloadBlob = wavBlob;
+        }
+        
+        const downloadUrl = URL.createObjectURL(downloadBlob);
         const a = document.createElement('a');
         a.href = downloadUrl;
         a.download = filename;
@@ -112,6 +147,7 @@ export const TextToSpeech = () => {
         document.body.removeChild(a);
         URL.revokeObjectURL(downloadUrl);
         toast.success(`Audio downloaded as ${filename}`);
+        setShowExportOptions(false);
       } catch (error) {
         console.error('Error downloading audio:', error);
         toast.error('Failed to download audio. Please try again.');
@@ -258,12 +294,13 @@ export const TextToSpeech = () => {
             <FileImport onImport={handleImport} />
             <button
               type="button"
-              onClick={handleDownload}
+              onClick={() => setShowExportOptions(!showExportOptions)}
               disabled={!currentAudioBlob}
               className="flex items-center justify-center gap-2 py-2 px-4 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:pointer-events-none"
             >
               <Download className="h-5 w-5" />
-              Download Audio
+              <span>Download Audio</span>
+              <ChevronDown className={cn("h-4 w-4 transition-transform", showExportOptions && "rotate-180")} />
             </button>
           </div>
         </div>
@@ -272,23 +309,72 @@ export const TextToSpeech = () => {
       {/* Audio element */}
       <audio ref={audioRef} onEnded={resetHighlight} />
       
-      {/* Audio Player */}
+      {/* Audio Player and Export Options */}
       {currentAudioUrl && (
-        <AudioPlayer
-          isPlaying={isPlaying}
-          currentTime={currentTime}
-          duration={duration}
-          volume={audioRef.current?.volume || 1}
-          isMuted={audioRef.current?.muted || false}
-          onPlay={controls.play}
-          onPause={controls.pause}
-          onSeek={(time) => {
-            controls.seek(time);
-            updateHighlightOnSeek(time);
-          }}
-          onVolumeChange={controls.setVolume}
-          onToggleMute={controls.toggleMute}
-        />
+        <div className="relative">
+          <AudioPlayer
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            volume={audioRef.current?.volume || 1}
+            isMuted={audioRef.current?.muted || false}
+            onPlay={controls.play}
+            onPause={controls.pause}
+            onSeek={(time) => {
+              controls.seek(time);
+              updateHighlightOnSeek(time);
+            }}
+            onVolumeChange={controls.setVolume}
+            onToggleMute={controls.toggleMute}
+          />
+
+          {/* Export Options Panel */}
+          {showExportOptions && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="absolute left-0 right-0 mt-2 rounded-lg shadow-lg bg-popover border border-border overflow-hidden"
+            >
+              <div className="p-4 space-y-2">
+                <div className="text-sm font-medium mb-2 text-foreground">Export Options</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedFormat('mp3');
+                      handleDownload();
+                    }}
+                    className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>MP3 Format</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedFormat('wav');
+                      handleDownload();
+                    }}
+                    className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>WAV Format</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedFormat('flac');
+                      handleDownload();
+                    }}
+                    className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>FLAC Format</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </div>
       )}
     </div>
   );
