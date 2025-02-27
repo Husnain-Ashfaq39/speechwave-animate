@@ -15,6 +15,8 @@ import { useTTSSettings } from "@/hooks/useTTSSettings";
 import { useTextHighlight } from "@/hooks/useTextHighlight";
 import { FileImport } from "./text-to-speech/FileImport";
 
+const MAX_WORDS = 1000;
+
 export const TextToSpeech = () => {
   const [text, setText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -189,16 +191,21 @@ export const TextToSpeech = () => {
 
   return (
     <div className="w-full max-w-3xl mx-auto p-4 md:p-6 lg:p-8 animate-fade-in">
+      {/* Header Section */}
       <motion.div 
-        className="flex justify-between items-center mb-6"
+        className="flex justify-between items-center mb-8"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h1 className="text-2xl md:text-3xl font-semibold text-gradient">
-          <span className="text-sm uppercase tracking-wider text-muted-foreground/70 block mb-1">Starter</span>
-          Text to Speech
-        </h1>
+        <div>
+          <span className="text-sm uppercase tracking-wider text-muted-foreground/70 block mb-1">
+            Premium Text-to-Speech
+          </span>
+          <h1 className="text-2xl md:text-3xl font-semibold text-gradient">
+            Convert Text to Natural Speech
+          </h1>
+        </div>
         <div className="flex items-center gap-2">
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -237,6 +244,7 @@ export const TextToSpeech = () => {
         </div>
       </motion.div>
       
+      {/* Settings & History Panels */}
       <HistoryPanel
         show={showHistory}
         history={history}
@@ -252,26 +260,37 @@ export const TextToSpeech = () => {
         onVoiceSelect={updateVoice}
       />
       
+      {/* Main Content Section */}
       <motion.form 
         onSubmit={handleSubmit} 
-        className="space-y-4"
+        className="space-y-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <HighlightedText
-          words={words}
-          currentWordIndex={currentWordIndex}
-          onTextChange={setText}
-          value={text}
-        />
+        {/* Text Input Section */}
+        <section>
+          <h2 className="text-lg font-medium mb-3 flex items-center gap-2">
+            <span>Input Text</span>
+            <span className="text-xs text-muted-foreground font-normal">
+              (Max {MAX_WORDS} words)
+            </span>
+          </h2>
+          <HighlightedText
+            words={words}
+            currentWordIndex={currentWordIndex}
+            onTextChange={setText}
+            value={text}
+          />
+        </section>
         
-        <div className="flex flex-col md:flex-row gap-4">
+        {/* Action Buttons Section */}
+        <section className="flex flex-col md:flex-row gap-4">
           <button
             type="submit"
             disabled={isProcessing || !text.trim() || isPlaying}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+              "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
               (isProcessing || !text.trim() || isPlaying)
                 ? "bg-primary/30 text-primary-foreground/50 cursor-not-allowed" 
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -296,85 +315,87 @@ export const TextToSpeech = () => {
               type="button"
               onClick={() => setShowExportOptions(!showExportOptions)}
               disabled={!currentAudioBlob}
-              className="flex items-center justify-center gap-2 py-2 px-4 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+              className="flex items-center justify-center gap-2 py-3 px-4 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:pointer-events-none"
             >
               <Download className="h-5 w-5" />
               <span>Download Audio</span>
               <ChevronDown className={cn("h-4 w-4 transition-transform", showExportOptions && "rotate-180")} />
             </button>
           </div>
-        </div>
+        </section>
       </motion.form>
       
-      {/* Audio element */}
+      {/* Audio Player Section */}
       <audio ref={audioRef} onEnded={resetHighlight} />
       
-      {/* Audio Player and Export Options */}
       {currentAudioUrl && (
-        <div className="relative">
-          <AudioPlayer
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={duration}
-            volume={audioRef.current?.volume || 1}
-            isMuted={audioRef.current?.muted || false}
-            onPlay={controls.play}
-            onPause={controls.pause}
-            onSeek={(time) => {
-              controls.seek(time);
-              updateHighlightOnSeek(time);
-            }}
-            onVolumeChange={controls.setVolume}
-            onToggleMute={controls.toggleMute}
-          />
+        <section className="mt-8">
+          <h2 className="text-lg font-medium mb-3">Audio Preview</h2>
+          <div className="relative">
+            <AudioPlayer
+              isPlaying={isPlaying}
+              currentTime={currentTime}
+              duration={duration}
+              volume={audioRef.current?.volume || 1}
+              isMuted={audioRef.current?.muted || false}
+              onPlay={controls.play}
+              onPause={controls.pause}
+              onSeek={(time) => {
+                controls.seek(time);
+                updateHighlightOnSeek(time);
+              }}
+              onVolumeChange={controls.setVolume}
+              onToggleMute={controls.toggleMute}
+            />
 
-          {/* Export Options Panel */}
-          {showExportOptions && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="absolute left-0 right-0 mt-2 rounded-lg shadow-lg bg-popover border border-border overflow-hidden"
-            >
-              <div className="p-4 space-y-2">
-                <div className="text-sm font-medium mb-2 text-foreground">Export Options</div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <button
-                    onClick={() => {
-                      setSelectedFormat('mp3');
-                      handleDownload();
-                    }}
-                    className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-                  >
-                    <Download className="h-4 w-4" />
-                    <span>MP3 Format</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedFormat('wav');
-                      handleDownload();
-                    }}
-                    className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-                  >
-                    <Download className="h-4 w-4" />
-                    <span>WAV Format</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedFormat('flac');
-                      handleDownload();
-                    }}
-                    className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-                  >
-                    <Download className="h-4 w-4" />
-                    <span>FLAC Format</span>
-                  </button>
+            {/* Export Options Panel */}
+            {showExportOptions && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="absolute left-0 right-0 mt-2 rounded-lg shadow-lg bg-popover border border-border overflow-hidden"
+              >
+                <div className="p-4 space-y-2">
+                  <h3 className="text-sm font-medium mb-2">Export Options</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedFormat('mp3');
+                        handleDownload();
+                      }}
+                      className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>MP3 Format</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedFormat('wav');
+                        handleDownload();
+                      }}
+                      className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>WAV Format</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedFormat('flac');
+                        handleDownload();
+                      }}
+                      className="flex items-center justify-center gap-2 p-3 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>FLAC Format</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
-        </div>
+              </motion.div>
+            )}
+          </div>
+        </section>
       )}
     </div>
   );
