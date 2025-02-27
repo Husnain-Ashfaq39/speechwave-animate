@@ -2,23 +2,10 @@
 import { useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-type VoiceAccent = "American" | "British" | "Australian" | "Indian" | "Spanish" | "French" | "German" | "Japanese";
-type VoiceGender = "Male" | "Female" | "Neutral";
-type VoiceAge = "Young" | "Adult" | "Senior";
-
-type Voice = {
-  id: string;
-  name: string;
-  gender: VoiceGender;
-  accent?: VoiceAccent;
-  age?: VoiceAge;
-  preview?: string;
-  description?: string;
-};
+import { VoiceAccent, VoiceGender, VoiceAge, TTSVoice } from "@/lib/tts-utils";
 
 // Extended voices with more diversity
-const VOICES: Voice[] = [
+const VOICES: TTSVoice[] = [
   // Female voices
   { id: "aria", name: "Aria", gender: "Female", accent: "American", age: "Adult", description: "Clear and professional" },
   { id: "sarah", name: "Sarah", gender: "Female", accent: "British", age: "Adult", description: "Warm and friendly" },
@@ -45,8 +32,8 @@ const VOICES: Voice[] = [
 ];
 
 interface VoiceSelectorProps {
-  selectedVoice: Voice;
-  onSelect: (voice: Voice) => void;
+  selectedVoice: TTSVoice;
+  onSelect: (voice: TTSVoice) => void;
   className?: string;
 }
 
@@ -54,7 +41,7 @@ export const VoiceSelector = ({ selectedVoice, onSelect, className }: VoiceSelec
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState<string>("");
 
-  const handleSelect = (voice: Voice) => {
+  const handleSelect = (voice: TTSVoice) => {
     onSelect(voice);
     setIsOpen(false);
   };
@@ -70,7 +57,7 @@ export const VoiceSelector = ({ selectedVoice, onSelect, className }: VoiceSelec
     : VOICES;
 
   // Group voices by gender for better organization
-  const groupedVoices: Record<VoiceGender, Voice[]> = {
+  const groupedVoices: Record<VoiceGender, TTSVoice[]> = {
     Female: filteredVoices.filter(v => v.gender === "Female"),
     Male: filteredVoices.filter(v => v.gender === "Male"),
     Neutral: filteredVoices.filter(v => v.gender === "Neutral")

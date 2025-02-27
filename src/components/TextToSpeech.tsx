@@ -2,18 +2,18 @@
 import { useState, useRef, useEffect } from "react";
 import { VoiceSelector } from "./VoiceSelector";
 import { Waveform } from "./ui/waveform";
-import { synthesizeSpeech, TTSSettings, formatTime, saveTextAsFile } from "@/lib/tts-utils";
+import { synthesizeSpeech, TTSSettings, formatTime, saveTextAsFile, TTSVoice } from "@/lib/tts-utils";
 import { ThemeToggle } from "./ThemeToggle";
 import { Download, Pause, Play, Settings, Volume2, Clock, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_VOICE = { 
+const DEFAULT_VOICE: TTSVoice = { 
   id: "aria", 
   name: "Aria", 
-  gender: "Female" as const, 
-  accent: "American" as const, 
-  age: "Adult" as const,
+  gender: "Female", 
+  accent: "American", 
+  age: "Adult",
   description: "Clear and professional" 
 };
 
@@ -21,7 +21,7 @@ type HistoryItem = {
   id: string;
   text: string;
   timestamp: number;
-  voice: { id: string; name: string; gender: string; accent?: string };
+  voice: TTSVoice;
 };
 
 export const TextToSpeech = () => {
@@ -136,7 +136,7 @@ export const TextToSpeech = () => {
     setText(e.target.value);
   };
 
-  const handleVoiceChange = (voice: typeof selectedVoice) => {
+  const handleVoiceChange = (voice: TTSVoice) => {
     setSelectedVoice(voice);
     setSettings(prev => ({ ...prev, voice }));
   };
@@ -231,7 +231,7 @@ export const TextToSpeech = () => {
   const loadFromHistory = (item: HistoryItem) => {
     setText(item.text);
     setSettings(prev => ({ ...prev, voice: item.voice }));
-    setSelectedVoice(item.voice as typeof selectedVoice);
+    setSelectedVoice(item.voice);
     setShowHistory(false);
   };
 
