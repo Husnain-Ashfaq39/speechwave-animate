@@ -291,45 +291,7 @@ export const TextToSpeech = () => {
         </div>
       </div>
       
-      {/* Settings Panel */}
-      <div className={cn(
-        "mb-6 glass-card rounded-lg p-4 transition-all",
-        showSettings ? "h-auto opacity-100" : "h-0 opacity-0 overflow-hidden p-0"
-      )}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-scale-in">
-          <div>
-            <label className="block text-sm font-medium mb-2">Voice</label>
-            <VoiceSelector 
-              selectedVoice={selectedVoice} 
-              onSelect={handleVoiceChange} 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Speech Rate: {settings.rate.toFixed(1)}x</label>
-            <input
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value={settings.rate}
-              onChange={handleRateChange}
-              className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Pitch: {settings.pitch.toFixed(1)}</label>
-            <input
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value={settings.pitch}
-              onChange={handlePitchChange}
-              className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
-            />
-          </div>
-        </div>
-      </div>
+      
 
       {/* History Panel */}
       <div className={cn(
@@ -420,6 +382,45 @@ export const TextToSpeech = () => {
             ))}
           </div>
         </div>
+        {/* Settings Panel */}
+      <div className={cn(
+        "mb-6 glass-card rounded-lg p-4 transition-all",
+        showSettings ? "h-auto opacity-100" : "h-0 opacity-0 overflow-hidden p-0"
+      )}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-scale-in">
+          <div>
+            <label className="block text-sm font-medium mb-2">Voice</label>
+            <VoiceSelector 
+              selectedVoice={selectedVoice} 
+              onSelect={handleVoiceChange} 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Speech Rate: {settings.rate.toFixed(1)}x</label>
+            <input
+              type="range"
+              min="0.5"
+              max="2"
+              step="0.1"
+              value={settings.rate}
+              onChange={handleRateChange}
+              className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Pitch: {settings.pitch.toFixed(1)}</label>
+            <input
+              type="range"
+              min="0.5"
+              max="2"
+              step="0.1"
+              value={settings.pitch}
+              onChange={handlePitchChange}
+              className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
+        </div>
+      </div>
         
         <div className="flex flex-col md:flex-row gap-4">
           <button
@@ -447,6 +448,7 @@ export const TextToSpeech = () => {
           </button>
         </div>
       </form>
+      
       
       {/* Audio Player */}
       <div className={cn(

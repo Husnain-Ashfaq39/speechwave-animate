@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -64,7 +63,7 @@ export const VoiceSelector = ({ selectedVoice, onSelect, className }: VoiceSelec
   };
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative z-[100]", className)}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -82,8 +81,8 @@ export const VoiceSelector = ({ selectedVoice, onSelect, className }: VoiceSelec
       </button>
       
       {isOpen && (
-        <div className="absolute top-full mt-1 w-full z-10 animate-fade-in">
-          <div className="glass-card max-h-80 rounded-md overflow-hidden">
+        <div className="absolute top-full mt-1 w-full z-[999] animate-fade-in">
+          <div className="bg-background/95 backdrop-blur-sm border border-input/20 shadow-lg max-h-80 rounded-md overflow-hidden">
             {/* Search filter */}
             <div className="p-2 border-b border-input/10">
               <input
