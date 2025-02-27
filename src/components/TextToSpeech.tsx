@@ -257,12 +257,16 @@ export const TextToSpeech = () => {
           isPlaying={isPlaying}
           currentTime={currentTime}
           duration={duration}
+          volume={audioRef.current?.volume || 1}
+          isMuted={audioRef.current?.muted || false}
           onPlay={controls.play}
           onPause={controls.pause}
           onSeek={(time) => {
             controls.seek(time);
             updateHighlightOnSeek(time);
           }}
+          onVolumeChange={controls.setVolume}
+          onToggleMute={controls.toggleMute}
         />
       )}
     </div>

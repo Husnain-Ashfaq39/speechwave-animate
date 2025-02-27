@@ -5,6 +5,8 @@ export interface AudioPlayerState {
   isPlaying: boolean;
   currentTime: number;
   duration: number;
+  volume: number;
+  isMuted: boolean;
 }
 
 export const useAudioPlayer = (audioUrl: string | null) => {
@@ -12,6 +14,8 @@ export const useAudioPlayer = (audioUrl: string | null) => {
     isPlaying: false,
     currentTime: 0,
     duration: 0,
+    volume: 1,
+    isMuted: false,
   });
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -37,17 +41,27 @@ export const useAudioPlayer = (audioUrl: string | null) => {
       setState(prev => ({ ...prev, isPlaying: false }));
       toast.error('Error playing audio. Please try again.');
     };
+
+    const handleVolumeChange = () => {
+      setState(prev => ({ 
+        ...prev, 
+        volume: audio.volume,
+        isMuted: audio.muted
+      }));
+    };
     
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("ended", handleEnded);
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
     audio.addEventListener("error", handleError);
+    audio.addEventListener("volumechange", handleVolumeChange);
     
     return () => {
       audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
       audio.removeEventListener("error", handleError);
+      audio.removeEventListener("volumechange", handleVolumeChange);
       audio.pause();
     };
   }, []);
@@ -84,6 +98,19 @@ export const useAudioPlayer = (audioUrl: string | null) => {
     }
   };
 
+  const handleVolumeChange = (volume: number) => {
+    if (audioRef.current) {
+      audioRef.current.volume = Math.max(0, Math.min(1, volume));
+      audioRef.current.muted = volume === 0;
+    }
+  };
+
+  const handleToggleMute = () => {
+    if (audioRef.current) {
+      audioRef.current.muted = !audioRef.current.muted;
+    }
+  };
+
   return {
     audioRef,
     ...state,
@@ -91,6 +118,8 @@ export const useAudioPlayer = (audioUrl: string | null) => {
       play: handlePlay,
       pause: handlePause,
       seek: handleSeek,
+      setVolume: handleVolumeChange,
+      toggleMute: handleToggleMute,
     }
   };
 }; 
