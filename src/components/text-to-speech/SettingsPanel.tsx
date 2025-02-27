@@ -6,6 +6,9 @@ import { TTSSettings, TTSVoice } from "@/lib/tts-utils";
 import { VoiceSelector } from "../VoiceSelector";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 
 interface SettingsPanelProps {
   show: boolean;
@@ -130,143 +133,149 @@ export const SettingsPanel = ({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Stability</label>
-              <Tooltip content={tooltips.stability}>
-                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-              </Tooltip>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Stability</Label>
+                <Tooltip content={tooltips.stability}>
+                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                </Tooltip>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {(settings.stability * 100).toFixed(0)}%
+              </span>
             </div>
-            <input
-              type="range"
+            <Slider
               min={0}
               max={1}
               step={0.1}
-              value={settings.stability}
-              onChange={(e) => onSettingChange("stability", parseFloat(e.target.value))}
-              className="w-full accent-primary"
+              value={[settings.stability]}
+              onValueChange={([value]) => onSettingChange("stability", value)}
+              className="w-full"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Natural</span>
-              <span>{(settings.stability * 100).toFixed(0)}%</span>
               <span>Stable</span>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Similarity Boost</label>
-              <Tooltip content={tooltips.similarityBoost}>
-                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-              </Tooltip>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Similarity Boost</Label>
+                <Tooltip content={tooltips.similarityBoost}>
+                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                </Tooltip>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {(settings.similarityBoost * 100).toFixed(0)}%
+              </span>
             </div>
-            <input
-              type="range"
+            <Slider
               min={0}
               max={1}
               step={0.1}
-              value={settings.similarityBoost}
-              onChange={(e) => onSettingChange("similarityBoost", parseFloat(e.target.value))}
-              className="w-full accent-primary"
+              value={[settings.similarityBoost]}
+              onValueChange={([value]) => onSettingChange("similarityBoost", value)}
+              className="w-full"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Unique</span>
-              <span>{(settings.similarityBoost * 100).toFixed(0)}%</span>
               <span>Similar</span>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Style</label>
-              <Tooltip content={tooltips.style}>
-                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-              </Tooltip>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Style</Label>
+                <Tooltip content={tooltips.style}>
+                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                </Tooltip>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {(settings.style * 100).toFixed(0)}%
+              </span>
             </div>
-            <input
-              type="range"
+            <Slider
               min={0}
               max={1}
               step={0.1}
-              value={settings.style}
-              onChange={(e) => onSettingChange("style", parseFloat(e.target.value))}
-              className="w-full accent-primary"
+              value={[settings.style]}
+              onValueChange={([value]) => onSettingChange("style", value)}
+              className="w-full"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Neutral</span>
-              <span>{(settings.style * 100).toFixed(0)}%</span>
               <span>Expressive</span>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Speech Rate</label>
-              <Tooltip content={tooltips.rate}>
-                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-              </Tooltip>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Speech Rate</Label>
+                <Tooltip content={tooltips.rate}>
+                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                </Tooltip>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {settings.rate}x
+              </span>
             </div>
-            <input
-              type="range"
+            <Slider
               min={0.5}
               max={2}
               step={0.1}
-              value={settings.rate}
-              onChange={(e) => onSettingChange("rate", parseFloat(e.target.value))}
-              className="w-full accent-primary"
+              value={[settings.rate]}
+              onValueChange={([value]) => onSettingChange("rate", value)}
+              className="w-full"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Slower</span>
-              <span>{settings.rate}x</span>
               <span>Faster</span>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Pitch</label>
-              <Tooltip content={tooltips.pitch}>
-                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-              </Tooltip>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Pitch</Label>
+                <Tooltip content={tooltips.pitch}>
+                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                </Tooltip>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {settings.pitch}x
+              </span>
             </div>
-            <input
-              type="range"
+            <Slider
               min={0.5}
               max={2}
               step={0.1}
-              value={settings.pitch}
-              onChange={(e) => onSettingChange("pitch", parseFloat(e.target.value))}
-              className="w-full accent-primary"
+              value={[settings.pitch]}
+              onValueChange={([value]) => onSettingChange("pitch", value)}
+              className="w-full"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Lower</span>
-              <span>{settings.pitch}x</span>
               <span>Higher</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Speaker Boost</label>
-          <Tooltip content={tooltips.useSpeakerBoost}>
-            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-          </Tooltip>
-          <div className="flex-1" />
-          <button
-            type="button"
-            onClick={() => onSettingChange("useSpeakerBoost", !settings.useSpeakerBoost)}
-            className={cn(
-              "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out",
-              settings.useSpeakerBoost ? "bg-primary" : "bg-secondary"
-            )}
-          >
-            <span
-              className={cn(
-                "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out",
-                settings.useSpeakerBoost ? "translate-x-5" : "translate-x-0.5"
-              )}
-            />
-          </button>
+        <div className="flex items-center justify-between space-x-4">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="speaker-boost" className="text-sm font-medium">Speaker Boost</Label>
+            <Tooltip content={tooltips.useSpeakerBoost}>
+              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+            </Tooltip>
+          </div>
+          <Switch
+            id="speaker-boost"
+            checked={settings.useSpeakerBoost}
+            onCheckedChange={(checked) => onSettingChange("useSpeakerBoost", checked)}
+          />
         </div>
       </div>
     </motion.div>
