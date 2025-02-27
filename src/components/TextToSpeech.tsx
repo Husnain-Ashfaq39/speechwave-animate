@@ -15,6 +15,7 @@ import { useTTSSettings } from "@/hooks/useTTSSettings";
 import { useTextHighlight } from "@/hooks/useTextHighlight";
 import { FileImport } from "./text-to-speech/FileImport";
 import { TextAreaSkeleton, AudioPlayerSkeleton, SettingsSkeleton } from "./ui/skeleton";
+import { useTTSApi } from '@/hooks/useTTSApi';
 
 const MAX_WORDS = 1000;
 
@@ -38,6 +39,8 @@ export const TextToSpeech = () => {
     currentTime,
     duration
   });
+
+  const { synthesizeSpeech: synthesize, isProcessing: isSynthesizing, cacheAudioBlob, getCachedAudioBlob } = useTTSApi();
 
   // Simulate settings loading on mount
   useEffect(() => {
@@ -64,39 +67,52 @@ export const TextToSpeech = () => {
         audioRef.current.currentTime = 0;
       }
 
-      // Process formatted text into segments
-      const segments = processFormattedText(text, settings);
-      
-      // Convert each segment and combine the audio
-      const audioBlobs: Blob[] = [];
-      
-      for (const segment of segments) {
-        const result = await synthesizeSpeech(segment.text, {
-          ...settings,
-          ...segment.settings
-        });
-        audioBlobs.push(result.audioBlob);
+      // Check cache first
+      const cacheKey = `${text}_${JSON.stringify(settings)}`;
+      const cachedBlob = getCachedAudioBlob(cacheKey);
+
+      let audioBlob: Blob;
+      let audioUrl: string;
+
+      if (cachedBlob) {
+        audioBlob = cachedBlob;
+        audioUrl = URL.createObjectURL(audioBlob);
+        toast.success("Retrieved from cache");
+      } else {
+        // Process formatted text into segments
+        const segments = processFormattedText(text, settings);
+        const audioBlobs: Blob[] = [];
+        
+        // Convert each segment
+        for (const segment of segments) {
+          const result = await synthesize({
+            text: segment.text,
+            settings: { ...settings, ...segment.settings }
+          });
+          audioBlobs.push(result.audioBlob);
+        }
+        
+        // Combine all audio blobs
+        audioBlob = new Blob(audioBlobs, { type: 'audio/mpeg' });
+        audioUrl = URL.createObjectURL(audioBlob);
+        
+        // Cache the result
+        cacheAudioBlob(cacheKey, audioBlob);
       }
-      
-      // Combine all audio blobs
-      const combinedBlob = new Blob(audioBlobs, { type: 'audio/mpeg' });
       
       // Clean up previous audio URL
       if (currentAudioUrl) {
         URL.revokeObjectURL(currentAudioUrl);
       }
       
-      // Create a new audio URL from the combined blob
-      const newAudioUrl = URL.createObjectURL(combinedBlob);
-      
-      // Store both the blob and URL
-      setCurrentAudioBlob(combinedBlob);
-      setCurrentAudioUrl(newAudioUrl);
+      // Update state with new audio
+      setCurrentAudioBlob(audioBlob);
+      setCurrentAudioUrl(audioUrl);
       
       if (audioRef.current) {
-        audioRef.current.src = newAudioUrl;
+        audioRef.current.src = audioUrl;
         audioRef.current.load();
-        addToHistory(text, newAudioUrl, combinedBlob, settings.voice);
+        addToHistory(text, audioUrl, audioBlob, settings.voice);
       }
       
       toast.success("Text converted to speech successfully");
