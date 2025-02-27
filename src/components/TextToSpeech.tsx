@@ -4,11 +4,18 @@ import { VoiceSelector } from "./VoiceSelector";
 import { Waveform } from "./ui/waveform";
 import { synthesizeSpeech, TTSSettings, formatTime, saveTextAsFile } from "@/lib/tts-utils";
 import { ThemeToggle } from "./ThemeToggle";
-import { Download, Pause, Play, Settings, Volume2 } from "lucide-react";
+import { Download, Pause, Play, Settings, Volume2, Clock, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_VOICE = { id: "aria", name: "Aria" };
+
+type HistoryItem = {
+  id: string;
+  text: string;
+  timestamp: number;
+  voice: { id: string; name: string };
+};
 
 export const TextToSpeech = () => {
   const [text, setText] = useState("");
@@ -16,6 +23,8 @@ export const TextToSpeech = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState(DEFAULT_VOICE);
   const [showSettings, setShowSettings] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [settings, setSettings] = useState<TTSSettings>({
     voice: DEFAULT_VOICE,
     rate: 1,
@@ -26,6 +35,23 @@ export const TextToSpeech = () => {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrl = useRef<string | null>(null);
+
+  // Load history from localStorage on component mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem("tts-history");
+    if (savedHistory) {
+      try {
+        setHistory(JSON.parse(savedHistory));
+      } catch (error) {
+        console.error("Failed to parse history from localStorage:", error);
+      }
+    }
+  }, []);
+
+  // Save history to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("tts-history", JSON.stringify(history));
+  }, [history]);
 
   useEffect(() => {
     const audio = new Audio();
@@ -78,6 +104,21 @@ export const TextToSpeech = () => {
     setSettings(prev => ({ ...prev, pitch }));
   };
 
+  const addToHistory = (text: string) => {
+    const newItem: HistoryItem = {
+      id: Date.now().toString(),
+      text,
+      timestamp: Date.now(),
+      voice: settings.voice,
+    };
+    
+    setHistory(prev => {
+      // Add to beginning of array, limit to 10 most recent items
+      const updated = [newItem, ...prev].slice(0, 10);
+      return updated;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -100,6 +141,9 @@ export const TextToSpeech = () => {
         // For this demo, we'll just assume we have an audio file
         audioRef.current.src = result.audioUrl;
         audioUrl.current = result.audioUrl;
+        
+        // Add to history
+        addToHistory(text);
         
         handlePlay();
       }
@@ -137,6 +181,32 @@ export const TextToSpeech = () => {
     toast.success("Text file downloaded successfully");
   };
 
+  const loadFromHistory = (item: HistoryItem) => {
+    setText(item.text);
+    setSettings(prev => ({ ...prev, voice: item.voice }));
+    setSelectedVoice(item.voice);
+    setShowHistory(false);
+  };
+
+  const removeFromHistory = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHistory(prev => prev.filter(item => item.id !== id));
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+    toast.success("History cleared");
+  };
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    });
+  };
+
   return (
     <div className="w-full max-w-3xl mx-auto p-4 md:p-6 lg:p-8 animate-fade-in">
       <div className="flex justify-between items-center mb-6">
@@ -146,7 +216,25 @@ export const TextToSpeech = () => {
         </h1>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowSettings(!showSettings)}
+            onClick={() => {
+              setShowHistory(!showHistory);
+              setShowSettings(false);
+            }}
+            className="relative h-10 w-10 rounded-full bg-secondary p-2 transition-colors hover:bg-secondary/80 focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label="History"
+          >
+            <Clock className="h-full w-full" />
+            {history.length > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] flex items-center justify-center text-primary-foreground">
+                {history.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => {
+              setShowSettings(!showSettings);
+              setShowHistory(false);
+            }}
             className="relative h-10 w-10 rounded-full bg-secondary p-2 transition-colors hover:bg-secondary/80 focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Settings"
           >
@@ -156,6 +244,7 @@ export const TextToSpeech = () => {
         </div>
       </div>
       
+      {/* Settings Panel */}
       <div className={cn(
         "mb-6 glass-card rounded-lg p-4 transition-all",
         showSettings ? "h-auto opacity-100" : "h-0 opacity-0 overflow-hidden p-0"
@@ -192,6 +281,57 @@ export const TextToSpeech = () => {
               className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
             />
           </div>
+        </div>
+      </div>
+
+      {/* History Panel */}
+      <div className={cn(
+        "mb-6 glass-card rounded-lg p-4 transition-all",
+        showHistory ? "h-auto opacity-100" : "h-0 opacity-0 overflow-hidden p-0"
+      )}>
+        <div className="animate-scale-in">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-medium">Recent Conversions</h2>
+            {history.length > 0 && (
+              <button
+                onClick={clearHistory}
+                className="text-xs text-destructive hover:underline"
+              >
+                Clear All
+              </button>
+            )}
+          </div>
+          
+          {history.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No history yet</p>
+          ) : (
+            <ul className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {history.map((item) => (
+                <li 
+                  key={item.id}
+                  onClick={() => loadFromHistory(item)}
+                  className="text-sm p-3 rounded-md bg-secondary/30 hover:bg-secondary/50 cursor-pointer transition-colors flex justify-between items-start"
+                >
+                  <div>
+                    <p className="line-clamp-2">{item.text}</p>
+                    <div className="flex gap-2 items-center mt-1 text-xs text-muted-foreground">
+                      <span>{formatDate(item.timestamp)}</span>
+                      <span className="px-1.5 py-0.5 rounded-full bg-secondary/50 text-[10px]">
+                        {item.voice.name}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => removeFromHistory(item.id, e)}
+                    className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                    aria-label="Remove from history"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
       
