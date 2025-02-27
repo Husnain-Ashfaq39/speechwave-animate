@@ -351,7 +351,7 @@ export const TextToSpeech = () => {
             type="submit"
             disabled={isProcessing || !text.trim() || isPlaying}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+              "flex-1 flex items-center justify-center gap-2 h-12 px-4 rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
               (isProcessing || !text.trim() || isPlaying)
                 ? "bg-primary/30 text-primary-foreground/50 cursor-not-allowed" 
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -371,12 +371,12 @@ export const TextToSpeech = () => {
           </button>
           
           <div className="flex gap-2">
-            <FileImport onImport={handleImport} />
+            <FileImport onImport={handleImport} className="h-12" />
             <button
               type="button"
               onClick={() => setShowExportOptions(!showExportOptions)}
               disabled={!currentAudioBlob}
-              className="flex items-center justify-center gap-2 py-3 px-4 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+              className="flex items-center justify-center gap-2 h-12 px-4 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:pointer-events-none"
             >
               <Download className="h-5 w-5" />
               <span>Download Audio</span>

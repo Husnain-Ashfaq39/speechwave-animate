@@ -2,6 +2,7 @@ import { FileUp } from "lucide-react";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import * as mammoth from "mammoth";
+import { cn } from "@/lib/utils";
 
 interface FileImportProps {
   onImport: (text: string) => void;
@@ -82,7 +83,10 @@ export const FileImport = ({ onImport, className }: FileImportProps) => {
       <button
         type="button"
         onClick={handleClick}
-        className="relative group flex items-center gap-2 py-2 px-4 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+        className={cn(
+          "relative group flex items-center gap-2 px-4 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors h-full",
+          className
+        )}
       >
         <FileUp className="h-5 w-5" />
         <span>Import Text</span>
