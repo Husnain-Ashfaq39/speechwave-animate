@@ -8,9 +8,11 @@ import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./text-to-speech/AudioPlayer";
 import { HistoryPanel } from "./text-to-speech/HistoryPanel";
 import { SettingsPanel } from "./text-to-speech/SettingsPanel";
+import { HighlightedText } from "./text-to-speech/HighlightedText";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { useTTSHistory } from "@/hooks/useTTSHistory";
 import { useTTSSettings } from "@/hooks/useTTSSettings";
+import { useTextHighlight } from "@/hooks/useTextHighlight";
 
 export const TextToSpeech = () => {
   const [text, setText] = useState("");
@@ -23,6 +25,12 @@ export const TextToSpeech = () => {
   const { settings, updateSetting, updateVoice } = useTTSSettings();
   const { history, addToHistory, removeFromHistory, clearHistory } = useTTSHistory();
   const { audioRef, isPlaying, currentTime, duration, controls } = useAudioPlayer(currentAudioUrl);
+  const { words, currentWordIndex, updateHighlightOnSeek, resetHighlight } = useTextHighlight({
+    text,
+    isPlaying,
+    currentTime,
+    duration
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,24 +205,12 @@ export const TextToSpeech = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <div className="glass-card rounded-lg overflow-hidden transition-all duration-300 border border-input relative">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Enter text to convert to speech..."
-            className="w-full h-40 p-4 bg-transparent focus:outline-none resize-none pr-10"
-            required
-          />
-          {text && (
-            <button
-              type="button"
-              onClick={() => setText("")}
-              className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-accent/50 text-muted-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        <HighlightedText
+          words={words}
+          currentWordIndex={currentWordIndex}
+          onTextChange={setText}
+          value={text}
+        />
         
         <div className="flex flex-col md:flex-row gap-4">
           <button
@@ -253,7 +249,7 @@ export const TextToSpeech = () => {
       </motion.form>
       
       {/* Audio element */}
-      <audio ref={audioRef} />
+      <audio ref={audioRef} onEnded={resetHighlight} />
       
       {/* Audio Player */}
       {currentAudioUrl && (
@@ -263,7 +259,10 @@ export const TextToSpeech = () => {
           duration={duration}
           onPlay={controls.play}
           onPause={controls.pause}
-          onSeek={controls.seek}
+          onSeek={(time) => {
+            controls.seek(time);
+            updateHighlightOnSeek(time);
+          }}
         />
       )}
     </div>
