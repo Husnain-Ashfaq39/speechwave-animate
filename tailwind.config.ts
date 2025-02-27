@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -114,6 +113,25 @@ export default {
 					"0%": { height: "0.125rem" },
 					"50%": { height: "1.5rem" },
 					"100%": { height: "0.125rem" }
+				},
+				"border-width": {
+					"0%, 100%": { "border-width": "2px" },
+					"50%": { "border-width": "4px" }
+				},
+				"border-color-rotate": {
+					"0%, 100%": {
+						"border-color": "rgb(236, 72, 153)",
+						"box-shadow": "0 0 20px rgba(236, 72, 153, 0.5), inset 0 0 20px rgba(236, 72, 153, 0.5)"
+					},
+					"50%": {
+						"border-color": "rgb(59, 130, 246)",
+						"box-shadow": "0 0 20px rgba(59, 130, 246, 0.5), inset 0 0 20px rgba(59, 130, 246, 0.5)"
+					}
+				},
+				"border-rotate": {
+					"0%": { "background-position": "0% 50%" },
+					"50%": { "background-position": "100% 50%" },
+					"100%": { "background-position": "0% 50%" }
 				}
 			},
 			animation: {
@@ -126,7 +144,10 @@ export default {
 				"slide-in-right": "slide-in-right 0.3s ease-out",
 				"slide-out-right": "slide-out-right 0.3s ease-out",
 				"enter": "fade-in 0.3s ease-out, scale-in 0.2s ease-out",
-				"exit": "fade-out 0.3s ease-out, scale-out 0.2s ease-out"
+				"exit": "fade-out 0.3s ease-out, scale-out 0.2s ease-out",
+				"border-width": "border-width 2s ease-in-out infinite",
+				"border-color": "border-color-rotate 3s ease-in-out infinite",
+				"border-rotate": "border-rotate 3s linear infinite"
 			}
 		}
 	},

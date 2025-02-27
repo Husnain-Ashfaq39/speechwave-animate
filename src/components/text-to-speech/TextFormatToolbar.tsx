@@ -44,12 +44,18 @@ export const TextFormatToolbar = ({
   onInsertFormat,
   className
 }: TextFormatToolbarProps) => {
+  const handleFormatClick = (e: React.MouseEvent, format: string) => {
+    e.preventDefault(); // Prevent form submission
+    onInsertFormat(format);
+  };
+
   return (
     <div className={cn("flex items-center gap-1 p-1 bg-secondary/20 rounded-lg", className)}>
       {formatButtons.map((button) => (
         <button
           key={button.label}
-          onClick={() => onInsertFormat(button.format)}
+          onClick={(e) => handleFormatClick(e, button.format)}
+          type="button" // Explicitly set button type to prevent form submission
           className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative group"
           title={button.tooltip}
         >

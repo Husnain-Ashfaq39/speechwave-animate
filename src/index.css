@@ -96,3 +96,14 @@
     animation-delay: calc(0.1s * var(--index));
   }
 }
+
+
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
