@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { VoiceSelector } from "./VoiceSelector";
 import { Waveform } from "./ui/waveform";
@@ -7,13 +8,20 @@ import { Download, Pause, Play, Settings, Volume2, Clock, X } from "lucide-react
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_VOICE = { id: "aria", name: "Aria" };
+const DEFAULT_VOICE = { 
+  id: "aria", 
+  name: "Aria", 
+  gender: "Female" as const, 
+  accent: "American" as const, 
+  age: "Adult" as const,
+  description: "Clear and professional" 
+};
 
 type HistoryItem = {
   id: string;
   text: string;
   timestamp: number;
-  voice: { id: string; name: string };
+  voice: { id: string; name: string; gender: string; accent?: string };
 };
 
 export const TextToSpeech = () => {
@@ -128,7 +136,7 @@ export const TextToSpeech = () => {
     setText(e.target.value);
   };
 
-  const handleVoiceChange = (voice: { id: string; name: string }) => {
+  const handleVoiceChange = (voice: typeof selectedVoice) => {
     setSelectedVoice(voice);
     setSettings(prev => ({ ...prev, voice }));
   };
@@ -223,7 +231,7 @@ export const TextToSpeech = () => {
   const loadFromHistory = (item: HistoryItem) => {
     setText(item.text);
     setSettings(prev => ({ ...prev, voice: item.voice }));
-    setSelectedVoice(item.voice);
+    setSelectedVoice(item.voice as typeof selectedVoice);
     setShowHistory(false);
   };
 
@@ -357,6 +365,7 @@ export const TextToSpeech = () => {
                       <span>{formatDate(item.timestamp)}</span>
                       <span className="px-1.5 py-0.5 rounded-full bg-secondary/50 text-[10px]">
                         {item.voice.name}
+                        {item.voice.accent && ` · ${item.voice.accent}`}
                       </span>
                     </div>
                   </div>

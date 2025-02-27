@@ -1,8 +1,16 @@
 
 // Types for TTS operations
+export type VoiceAccent = "American" | "British" | "Australian" | "Indian" | "Spanish" | "French" | "German" | "Japanese" | "Scottish";
+export type VoiceGender = "Male" | "Female" | "Neutral";
+export type VoiceAge = "Young" | "Adult" | "Senior";
+
 export type TTSVoice = {
   id: string;
   name: string;
+  gender: VoiceGender;
+  accent?: VoiceAccent;
+  age?: VoiceAge;
+  description?: string;
 };
 
 export type TTSSettings = {
@@ -16,7 +24,8 @@ export const synthesizeSpeech = async (
   text: string,
   settings: TTSSettings
 ): Promise<{ audioUrl: string }> => {
-  console.log(`Synthesizing speech: "${text}" with voice ${settings.voice.name}`);
+  console.log(`Synthesizing speech: "${text}" with voice ${settings.voice.name} (${settings.voice.gender}, ${settings.voice.accent || 'No accent'})`);
+  console.log(`Speech settings: Rate ${settings.rate}x, Pitch ${settings.pitch}`);
   
   // Simulate API call delay
   await new Promise(resolve => setTimeout(resolve, 1000));
