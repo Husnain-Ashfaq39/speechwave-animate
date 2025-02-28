@@ -85,16 +85,29 @@ export const HighlightedText = ({
         isAtLimit && "border-yellow-500/50"
       )}>
         <div className="w-full h-40 p-4 bg-transparent focus:outline-none resize-none pr-10 overflow-y-auto whitespace-pre-wrap">
-          {words.map((word, index) => (
-            <span
-              key={index}
-              className={cn(
-                "transition-colors duration-150",
-                currentWordIndex === index && "bg-green-500/20 text-green-700 dark:text-green-400 rounded px-1"
-              )}
-            >
-              {word}{' '}
-            </span>
+          {value.split('\n').map((line, lineIndex) => (
+            <div key={lineIndex}>
+              {line.split(' ').map((word, wordIndex) => {
+                const globalWordIndex = value
+                  .split('\n')
+                  .slice(0, lineIndex)
+                  .join(' ')
+                  .split(' ')
+                  .length + wordIndex;
+                
+                return (
+                  <span
+                    key={`${lineIndex}-${wordIndex}`}
+                    className={cn(
+                      "transition-colors duration-150",
+                      currentWordIndex === globalWordIndex && "bg-green-500/20 text-green-700 dark:text-green-400 rounded px-1"
+                    )}
+                  >
+                    {word}{' '}
+                  </span>
+                );
+              })}
+            </div>
           ))}
         </div>
         <textarea
