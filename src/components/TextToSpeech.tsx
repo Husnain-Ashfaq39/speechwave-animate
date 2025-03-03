@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, Settings, Volume2, Clock, X, ChevronDown } from "lucide-react";
+import { Download, Settings, Volume2, Clock, X, ChevronDown, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { synthesizeSpeech, processFormattedText } from "@/lib/tts-utils";
 import { ThemeToggle } from "./ThemeToggle";
@@ -16,6 +16,7 @@ import { useTextHighlight } from "@/hooks/useTextHighlight";
 import { FileImport } from "./text-to-speech/FileImport";
 import { TextAreaSkeleton, AudioPlayerSkeleton, SettingsSkeleton } from "./ui/skeleton";
 import { useTTSApi } from '@/hooks/useTTSApi';
+import { SpeechGenerator } from "./text-to-speech/SpeechGenerator";
 
 const MAX_WORDS = 1000;
 
@@ -24,11 +25,13 @@ export const TextToSpeech = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showAiGenerator, setShowAiGenerator] = useState(false);
   const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null);
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<'mp3' | 'wav' | 'flac'>('mp3');
   const [isSettingsLoading, setIsSettingsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const { settings, updateSetting, updateVoice } = useTTSSettings();
   const { history, addToHistory, removeFromHistory, clearHistory } = useTTSHistory();
@@ -215,6 +218,10 @@ export const TextToSpeech = () => {
     setText(importedText);
   };
 
+  const handleSpeechGenerated = (generatedSpeech: string) => {
+    setText(generatedSpeech);
+  };
+
   return (
     <div className="w-full max-w-3xl mx-auto p-4 md:p-6 lg:p-8 animate-fade-in">
       {/* Header Section */}
@@ -237,8 +244,22 @@ export const TextToSpeech = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => {
+              setShowAiGenerator(!showAiGenerator);
+              setShowHistory(false);
+              setShowSettings(false);
+            }}
+            className="relative h-10 w-10 rounded-full bg-secondary p-2 transition-colors hover:bg-secondary/80 focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label="AI Generator"
+          >
+            <Wand2 className="h-full w-full" />
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
               setShowHistory(!showHistory);
               setShowSettings(false);
+              setShowAiGenerator(false);
             }}
             className="relative h-10 w-10 rounded-full bg-secondary p-2 transition-colors hover:bg-secondary/80 focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="History"
@@ -260,6 +281,7 @@ export const TextToSpeech = () => {
             onClick={() => {
               setShowSettings(!showSettings);
               setShowHistory(false);
+              setShowAiGenerator(false);
             }}
             className="relative h-10 w-10 rounded-full bg-secondary p-2 transition-colors hover:bg-secondary/80 focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Settings"
@@ -297,6 +319,24 @@ export const TextToSpeech = () => {
                 onVoiceSelect={updateVoice}
               />
             )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Speech Generator Section */}
+      <AnimatePresence mode="wait">
+        {showAiGenerator && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <SpeechGenerator
+              onSpeechGenerated={handleSpeechGenerated}
+              isGenerating={isGenerating}
+              setIsGenerating={setIsGenerating}
+            />
           </motion.div>
         )}
       </AnimatePresence>
