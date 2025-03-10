@@ -24,11 +24,19 @@ export const HighlightedText = ({
   const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0;
   const isAtLimit = wordCount >= MAX_WORDS;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
   
   const handleTextChange = (newValue: string) => {
     const newWordCount = newValue.trim() ? newValue.trim().split(/\s+/).length : 0;
     if (newWordCount <= MAX_WORDS) {
       onTextChange(newValue);
+    }
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
+    if (highlightRef.current) {
+      highlightRef.current.scrollTop = e.currentTarget.scrollTop;
+      highlightRef.current.scrollLeft = e.currentTarget.scrollLeft;
     }
   };
 
@@ -84,40 +92,49 @@ export const HighlightedText = ({
         "glass-card rounded-lg overflow-hidden transition-all duration-300 border border-input relative",
         isAtLimit && "border-yellow-500/50"
       )}>
-        <div className="w-full h-40 p-4 bg-transparent focus:outline-none resize-none pr-10 overflow-y-auto whitespace-pre-wrap">
-          {value.split('\n').map((line, lineIndex) => (
-            <div key={lineIndex}>
-              {line.split(' ').map((word, wordIndex) => {
-                const globalWordIndex = value
-                  .split('\n')
-                  .slice(0, lineIndex)
-                  .join(' ')
-                  .split(' ')
-                  .length + wordIndex;
-                
-                return (
-                  <span
-                    key={`${lineIndex}-${wordIndex}`}
-                    className={cn(
-                      "transition-colors duration-150",
-                      currentWordIndex === globalWordIndex && "bg-green-500/20 text-green-700 dark:text-green-400 rounded px-1"
-                    )}
-                  >
-                    {word}{' '}
-                  </span>
-                );
-              })}
-            </div>
-          ))}
+        <div className="relative w-full h-40">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => handleTextChange(e.target.value)}
+            onScroll={handleScroll}
+            placeholder={placeholder}
+            className="absolute inset-0 w-full h-full p-4 bg-transparent focus:outline-none resize-none overflow-auto text-transparent selection:bg-primary/20"
+            style={{
+              caretColor: 'currentColor'
+            }}
+            required
+          />
+          <div 
+            ref={highlightRef}
+            className="absolute inset-0 p-4 pointer-events-none overflow-auto whitespace-pre-wrap"
+          >
+            {value.split('\n').map((line, lineIndex) => (
+              <div key={lineIndex} className="min-h-[1.5em]">
+                {line.split(' ').map((word, wordIndex) => {
+                  const globalWordIndex = value
+                    .split('\n')
+                    .slice(0, lineIndex)
+                    .join(' ')
+                    .split(' ')
+                    .length + wordIndex;
+                  
+                  return (
+                    <span
+                      key={`${lineIndex}-${wordIndex}`}
+                      className={cn(
+                        "transition-colors duration-150",
+                        currentWordIndex === globalWordIndex && "bg-green-500/20 text-foreground font-medium rounded px-1"
+                      )}
+                    >
+                      {word}{' '}
+                    </span>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => handleTextChange(e.target.value)}
-          placeholder={placeholder}
-          className="w-full h-40 p-4 bg-transparent focus:outline-none resize-none pr-10 absolute inset-0 text-transparent caret-primary selection:bg-primary/20"
-          required
-        />
       </div>
       <div className="flex justify-between text-xs">
         <span className={cn(
